@@ -1,5 +1,5 @@
 # =========================
-# ✅ Calibration & capture data (DO NOT TRACK)
+# Calibration & capture data (DO NOT TRACK)
 # =========================
 
 data/
@@ -10,7 +10,7 @@ data/
 # data/phantom_images/
 
 # =========================
-# ✅ Images (safety catch)
+#   Images (safety catch)
 # =========================
 
 *.png
@@ -20,13 +20,13 @@ data/
 *.tiff
 
 # =========================
-# ✅ Generated overlays
+#    Generated overlays
 # =========================
 
 *_overlay.png
 
 # =========================
-# ✅ Python cache
+#       Python cache
 # =========================
 
 __pycache__/
@@ -34,20 +34,20 @@ __pycache__/
 *.pyo
 
 # =========================
-# ✅ OS junk
+#          OS junk
 # =========================
 
 .DS_Store
 Thumbs.db
 
 # =========================
-# ✅ VSCode / IDE
+#      VSCode / IDE
 # =========================
 
 .vscode/
 
 # =========================
-# ✅ Temporary outputs (optional)
+# Temporary outputs (optional)
 # =========================
 
 *.log
