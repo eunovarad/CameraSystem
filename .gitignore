@@ -1,0 +1,54 @@
+# =========================
+# ✅ Calibration & capture data (DO NOT TRACK)
+# =========================
+
+data/
+
+# If you ever want to keep structure but ignore contents instead:
+# data/*_captures/
+# data/*_overlays/
+# data/phantom_images/
+
+# =========================
+# ✅ Images (safety catch)
+# =========================
+
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.tiff
+
+# =========================
+# ✅ Generated overlays
+# =========================
+
+*_overlay.png
+
+# =========================
+# ✅ Python cache
+# =========================
+
+__pycache__/
+*.pyc
+*.pyo
+
+# =========================
+# ✅ OS junk
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# ✅ VSCode / IDE
+# =========================
+
+.vscode/
+
+# =========================
+# ✅ Temporary outputs (optional)
+# =========================
+
+*.log
+*.tmp
