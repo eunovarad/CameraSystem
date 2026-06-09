@@ -197,7 +197,7 @@ def draw_overlay(img, img_pts, reproj_pts, title=None):
 
 def main():
     ap=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    ap.add_argument("--intrinsics", required=True)
+    ap.add_argument("--intrinsics", required=False)
     ap.add_argument("--npz_list", action="store_true")
     ap.add_argument("--k_key"); ap.add_argument("--d_key")
     g=ap.add_mutually_exclusive_group(required=False)
@@ -213,21 +213,18 @@ def main():
     ap.add_argument("--save_overlay", action="store_true")
     ap.add_argument("--out_csv")
     ap.add_argument("--dump_residuals", help="Write per-point residuals CSV (one row per detected corner)")
+    ap.add_argument("--overlay_dir")
     args=ap.parse_args()
     # =========================
     #       APPLY PRESET
     # =========================
-    if USE_PRESET:
-        print("[INFO] Using PRESET configuration")
-
-        args.glob = PRESET["glob"]
-        args.intrinsics = PRESET["intrinsics"]
-        args.rows = PRESET["rows"]
-        args.cols = PRESET["cols"]
-        args.square = PRESET["square"]
-        args.save_overlay = PRESET["save_overlay"]
-        args.overlay_dir = PRESET["overlay_dir"]
-        args.verbose = PRESET["verbose"]
+    args.glob = PRESET["glob"]
+    args.intrinsics = PRESET["intrinsics"]
+    args.rows = PRESET["rows"]
+    args.cols = PRESET["cols"]
+    args.square = PRESET["square"]
+    args.save_overlay = PRESET["save_overlay"]
+    args.overlay_dir = PRESET["overlay_dir"]
 
     if args.npz_list: return npz_list_keys(args.intrinsics)
     if args.glob is None and args.images is None:
@@ -288,7 +285,13 @@ def main():
 
         if args.save_overlay:
             vis = draw_overlay(img, img_pts[inlier_mask], reproj, title=f"RMS={rms:.2f}px  n={len(reproj)}")
-            out_png = os.path.splitext(os.path.basename(pth))[0] + "_audit.png"
+            os.makedirs(args.overlay_dir, exist_ok=True)
+
+            out_png = os.path.join(
+                args.overlay_dir,
+                os.path.splitext(os.path.basename(pth))[0] + "_audit.png"
+            )
+
             cv2.imwrite(out_png, vis)
 
         if args.out_csv:
