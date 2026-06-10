@@ -5,6 +5,9 @@ import os
 # SIMPLE ONE-FRAME CAPTURE
 # =========================
 
+# LAPTOP TERMINAL COMMAND:
+# C:\Users\EUlibarri\AppData\Local\Python\pythoncore-3.14-64\python.exe scripts\capture_one_frame.py
+
 CAM = "left"           # change to "left", "right", or "back"
 SET_NAME = "set01"     # use the same set name for all 3 cameras
 DEVICE_INDEX = 0       # vary as needed
