@@ -36,6 +36,24 @@ import os, sys, json, csv, argparse
 import numpy as np
 import cv2
 
+USE_PRESET = True
+
+PRESET = {
+    "images": [
+            "./data/phantom_images/left_123.png",
+            "./data/phantom_images/right_123.png",
+            "./data/phantom_images/back_123.png"
+    ],
+
+    "intrinsics": [
+        "intrin_cam_left.npz",
+        "intrin_cam_right.npz",
+        "intrin_cam_back.npz"
+    ],
+
+    "phantom": "phantom_points.xlsx"
+}
+
 # ----------------- IO helpers -----------------
 def load_intrinsics(paths):
     Ks, Ds, sizes = [], [], []
@@ -530,6 +548,11 @@ def main():
     ap.add_argument("--magnification", type=int, default=8, help="Zoom factor for the ROI window")
     ap.add_argument("--no_subpixel", action="store_true", help="Disable subpixel refine on the 2nd click")
     args = ap.parse_args()
+    
+    if USE_PRESET:
+        args.images = PRESET["images"]
+        args.intrinsics = PRESET["intrinsics"]
+        args.phantom = PRESET["phantom"]
 
     # Resolve images
     if args.images:
