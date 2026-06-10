@@ -40,28 +40,52 @@ USE_PRESET = True
 
 PRESET = {
     "images": [
-            "./data/phantom_images/left_123.png",
-            "./data/phantom_images/right_123.png",
-            "./data/phantom_images/back_123.png"
+        "./data/phantom_images/left_set01.png",
+        "./data/phantom_images/right_set01.png",
+        "./data/phantom_images/back_set01.png"
     ],
-
     "intrinsics": [
         "intrin_cam_left.npz",
         "intrin_cam_right.npz",
         "intrin_cam_back.npz"
     ],
-
-    "phantom": "phantom_points.xlsx"
+    "phantom": "phantom_points.xlsx",
+    "save_debug": True,
+    "json_out": "rig_from_clicks.json",
+    "npz_out": "rig_from_clicks.npz"
 }
 
+
 # ----------------- IO helpers -----------------
+
 def load_intrinsics(paths):
     Ks, Ds, sizes = [], [], []
     for p in paths:
         d = np.load(p, allow_pickle=True)
-        Ks.append(d["camera_matrix"])
-        Ds.append(d["dist_coeffs"])
-        sizes.append(tuple(d["image_size"]))  # (w,h)
+
+        if "camera_matrix" in d:
+            K = d["camera_matrix"]
+        elif "K" in d:
+            K = d["K"]
+        else:
+            raise RuntimeError(f"{p} is missing camera matrix (expected 'camera_matrix' or 'K')")
+
+        if "dist_coeffs" in d:
+            D = d["dist_coeffs"]
+        elif "D" in d:
+            D = d["D"]
+        else:
+            raise RuntimeError(f"{p} is missing distortion coefficients (expected 'dist_coeffs' or 'D')")
+
+        if "image_size" in d:
+            size = tuple(d["image_size"])
+        else:
+            raise RuntimeError(f"{p} is missing image_size")
+
+        Ks.append(K)
+        Ds.append(D)
+        sizes.append(size)
+
     return Ks, Ds, sizes
 
 def _std_cols(cols): return [str(c).strip().lower().replace(" ", "") for c in cols]
@@ -532,12 +556,12 @@ def solve_extrinsics_from_clicks(img_path, K, D, phantom_ids, phantom_xyz,
 # ----------------- main -----------------
 def main():
     ap = argparse.ArgumentParser(description="Two-click (ROI + zoom) manual extrinsics from 3D phantom.")
-    g = ap.add_mutually_exclusive_group(required=True)
+    g = ap.add_mutually_exclusive_group(required=False)
     g.add_argument("--images", nargs=3, help="Explicit image paths for cam0, cam1, cam2")
     g.add_argument("--dirs", nargs=3, help="Folders for cam0, cam1, cam2; use with --suffix")
     ap.add_argument("--suffix", help="Common suffix (the <STAMP>) to pick camX_<STAMP> in each folder")
-    ap.add_argument("--intrinsics", nargs=3, required=True, help="intrin_cam_left.npz intrin_cam_right.npz intrin_cam_back.npz")
-    ap.add_argument("--phantom", required=True, help="phantom_points.xlsx or .csv with columns id,x,y,z")
+    ap.add_argument("--intrinsics", nargs=3, required=False, help="intrin_cam_left.npz intrin_cam_right.npz intrin_cam_back.npz")
+    ap.add_argument("--phantom", required=False, help="phantom_points.xlsx or .csv with columns id,x,y,z")
     ap.add_argument("--phantom_sheet", default=None, help="Excel sheet name (optional)")
     ap.add_argument("--min_points", type=int, default=12, help="Minimum clicks/IDs per camera")
     ap.add_argument("--save_debug", action="store_true", help="Save reprojection overlays")
@@ -553,6 +577,9 @@ def main():
         args.images = PRESET["images"]
         args.intrinsics = PRESET["intrinsics"]
         args.phantom = PRESET["phantom"]
+        args.save_debug = PRESET["save_debug"]
+        args.json_out = PRESET["json_out"]
+        args.npz_out = PRESET["npz_out"]
 
     # Resolve images
     if args.images:

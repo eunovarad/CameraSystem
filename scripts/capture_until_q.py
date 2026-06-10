@@ -13,7 +13,7 @@ CAM = "left"   # change to "left", "right", or "back"            #**************
 DEVICE_INDEX = 2                          # Camera device index
 OUTPUT_DIR = f"./data/{CAM}_captures"     # Directory where frames will be saved
 INTERVAL = 1.5                            # Seconds between captures
-DISPLAY_SCALE = 0.4                       # Scale for real-time display (1/4 area)
+DISPLAY_SCALE = 0.25                      # Scale for real-time display (1/4 area)
 
 
 def capture_images(device_index=DEVICE_INDEX, output_dir=OUTPUT_DIR, interval=INTERVAL):
