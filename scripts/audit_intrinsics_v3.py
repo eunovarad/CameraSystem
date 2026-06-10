@@ -5,7 +5,7 @@
 
 USE_PRESET = True
 
-CAM = "left"   # change to "left", "right", or "back"            #********************* change this when you switch cameras
+CAM = "right"   # change to "left", "right", or "back"            #********************* change this when you switch cameras
 
 PRESET = {
     "glob": [f"./data/{CAM}_captures/*.png"],

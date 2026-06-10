@@ -30,7 +30,7 @@ Then you can use full CLI arguments again.
 # CAMERA SELECTION
 # =========================
 
-CAM = "left"   # change to "left", "right", or "back"            #********************* change this when you switch cameras
+CAM = "right"   # change to "left", "right", or "back"            #********************* change this when you switch cameras
 
 import argparse, glob, os, sys, csv, time, traceback
 from datetime import datetime
