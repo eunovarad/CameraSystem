@@ -43,14 +43,57 @@ import os, sys, time, json, csv, argparse
 import numpy as np
 import cv2
 
+USE_PRESET = True
+
+PRESET = {
+    "images": [
+        "./data/phantom_images/left_set01.png",
+        "./data/phantom_images/right_set01.png",
+        "./data/phantom_images/back_set01.png"
+    ],
+
+    "intrinsics": [
+        "intrin_cam_left.npz",
+        "intrin_cam_right.npz",
+        "intrin_cam_back.npz"
+    ],
+
+    "rig": "rig_from_clicks.npz",
+
+    "phantom": "./phantom_points.xlsx",
+
+    "csv_out": "phantom_accuracy.csv"
+}
+
 # ---------------- IO helpers ----------------
 def load_intrinsics(paths):
     Ks, Ds, sizes = [], [], []
     for p in paths:
         d = np.load(p, allow_pickle=True)
-        Ks.append(d["camera_matrix"])
-        Ds.append(d["dist_coeffs"])
-        sizes.append(tuple(d["image_size"]))
+
+        if "camera_matrix" in d:
+            K = d["camera_matrix"]
+        elif "K" in d:
+            K = d["K"]
+        else:
+            raise RuntimeError(f"{p} missing camera matrix")
+
+        if "dist_coeffs" in d:
+            D = d["dist_coeffs"]
+        elif "D" in d:
+            D = d["D"]
+        else:
+            raise RuntimeError(f"{p} missing distortion")
+
+        if "image_size" in d:
+            size = tuple(d["image_size"])
+        else:
+            raise RuntimeError(f"{p} missing image_size")
+
+        Ks.append(K)
+        Ds.append(D)
+        sizes.append(size)
+
     return Ks, Ds, sizes
 
 def load_rig(path):
@@ -272,6 +315,10 @@ class TwoClickPicker:
                     fx, fy = self._subpixel_refine((fx, fy))
                     chosen["pt"] = [fx, fy]
 
+            elif event == cv2.EVENT_RBUTTONDOWN:
+                # undo/reset point
+                chosen["pt"] = None
+
         cv2.setMouseCallback(self.title_main, main_mouse_cb)
 
         while True:
@@ -402,14 +449,14 @@ def release_streams(streams, use_custom):
 # ---------------- Main ----------------
 def main():
     ap = argparse.ArgumentParser(description="Measure fiducials; auto-register to phantom after 3+ clicks. Reports in PHANTOM frame once possible.")
-    g = ap.add_mutually_exclusive_group(required=True)
+    g = ap.add_mutually_exclusive_group(required=False)
     g.add_argument("--images", nargs=3, help="Explicit cam0, cam1, cam2 image paths")
     g.add_argument("--live", action="store_true", help="Open cameras and capture on SPACE")
     ap.add_argument("--cams", nargs=3, type=int, default=[0,1,2], help="Camera indices for live mode (cam0 cam1 cam2)")
     ap.add_argument("--out_root", default="captures", help="Where to save live captures")
-    ap.add_argument("--intrinsics", nargs=3, required=True, help="intrin_cam_left.npz intrin_cam_right.npz intrin_cam_back.npz")
-    ap.add_argument("--rig", required=True, help="rig_final.npz or .json")
-    ap.add_argument("--phantom", required=True, help="phantom_points.xlsx or .csv with id,x,y,z (PHANTOM frame)")
+    ap.add_argument("--intrinsics", nargs=3, required=False, help="intrin_cam_left.npz intrin_cam_right.npz intrin_cam_back.npz")
+    ap.add_argument("--rig", required=False, help="rig_final.npz or .json")
+    ap.add_argument("--phantom", required=False, help="phantom_points.xlsx or .csv with id,x,y,z (PHANTOM frame)")
     ap.add_argument("--phantom_sheet", default=None)
     ap.add_argument("--roi_half", type=int, default=50)
     ap.add_argument("--magnification", type=int, default=10)
@@ -418,6 +465,13 @@ def main():
     ap.add_argument("--anchors", nargs="+", type=int, default=[], help="Optional fixed anchor IDs for best‑fit; otherwise all measured so far are used")
     ap.add_argument("--ordered", action="store_true", help="Measure 1→47 in order (default is arbitrary IDs)")
     args = ap.parse_args()
+
+    if USE_PRESET:
+        args.images = PRESET["images"]
+        args.intrinsics = PRESET["intrinsics"]
+        args.rig = PRESET["rig"]
+        args.phantom = PRESET["phantom"]
+        args.csv_out = PRESET["csv_out"]
 
     # Load calibration & phantom
     Ks, Ds, sizes = load_intrinsics(args.intrinsics)
@@ -462,6 +516,22 @@ def main():
                 release_streams(streams, use_custom)
                 print("Captured:\n  " + "\n  ".join(save_paths))
                 break
+     
+    # Load saved clicks
+    CLICK_INPUT_DIR = "./data/clicks"
+    click_data = []
+    for i in range(3):
+        fname = os.path.join(CLICK_INPUT_DIR, f"clicks_cam{i}.npz")
+
+        if not os.path.isfile(fname):
+            raise RuntimeError(f"Missing click file: {fname}")
+
+        d = np.load(fname)
+        click_data.append({
+            "clicks": d["clicks"],
+            "ids": d["ids"]
+        })
+
 
     # Load grayscale for picking
     g0 = cv2.imread(save_paths[0], cv2.IMREAD_GRAYSCALE)
@@ -515,9 +585,10 @@ def main():
               "X_ref_ph","Y_ref_ph","Z_ref_ph",
               "dX","dY","dZ","err_norm",
               "err0_px","err1_px","err2_px","rms_px"]
-    new_file = not os.path.isfile(args.csv_out)
-    f = open(args.csv_out, "a", newline=""); writer = csv.writer(f)
-    if new_file: writer.writerow(header)
+        
+    f = open(args.csv_out, "w", newline="")   # overwrite existing sheet
+    writer = csv.writer(f)
+    writer.writerow(header)
 
     # Auto-registration state
     meas_cam = {}   # fid -> 3D in cam0
@@ -549,18 +620,30 @@ def main():
         ids_clicked.append(fid)
 
         # compute/refresh transform
-        (R_c2ph, t_c2ph), (R_ph2c, t_ph2c), used_ids = current_transform()
+        res_c2ph, res_ph2c, used_ids = current_transform()
+
+        if res_c2ph is None:
+            R_c2ph, t_c2ph = None, None
+            R_ph2c, t_ph2c = None, None
+        else:
+            R_c2ph, t_c2ph = res_c2ph
+            R_ph2c, t_ph2c = res_ph2c
+
         print(f"\nFID {fid:02d}")
         print(f"  Reproj RMS: {rms:.3f}   cam0:{e0:.3f}  cam1:{e1:.3f}  cam2:{e2:.3f}")
         if R_c2ph is None:
-            print("  Not enough fiducials for comparison yet (need ≥3).")
+            n = len(meas_cam)
+            print(f"  Only {n} fiducial(s) measured so far.")
+            print("  Need at least 3 before accuracy can be computed.")
+            print("  → Keep measuring more points.\n")
+
             writer.writerow([time.time(), fid,
-                             u0, v0, u1, v1, u2, v2,
-                             X_cam[0], X_cam[1], X_cam[2],
-                             "", "", "",
-                             "", "", "",
-                             "", "", "", "",
-                             e0, e1, e2, rms])
+                            u0, v0, u1, v1, u2, v2,
+                            X_cam[0], X_cam[1], X_cam[2],
+                            "", "", "",
+                            "", "", "",
+                            "", "", "", "",
+                            e0, e1, e2, rms])
             f.flush()
             return True
 
@@ -610,16 +693,63 @@ def main():
         print("\nAll-done (ordered mode).")
     else:
         print("\n=== Arbitrary IDs mode ===")
-        print("Enter fiducial ID 1–47 to measure, or 'q' to quit.")
-        while True:
-            s = input("Fiducial ID (1–47 or q): ").strip().lower()
-            if s in ("q","quit","exit"): break
-            if not s.isdigit():
-                print("Please enter a number 1–47 or 'q'."); continue
-            fid = int(s)
-            if fid < 1 or fid > 47:
-                print("Out of range. Enter 1–47."); continue
-            measure_one(fid)
+        print("NOTE: You must measure at least 3 fiducials before accuracy can be computed.")
+        print("Recommendation: measure 10 to 20 well-spread points for best results.\n")
+        print("Enter fiducial ID 1 to 47 to measure, or 'q' to quit.")
+        
+        print("\n=== Automatic mode (using saved clicks) ===")
+
+        # Find common IDs across all 3 cameras
+        ids0 = set(click_data[0]["ids"])
+        ids1 = set(click_data[1]["ids"])
+        ids2 = set(click_data[2]["ids"])
+
+        common_ids = sorted(list(ids0 & ids1 & ids2))
+
+        print(f"Found {len(common_ids)} shared fiducials")
+
+        for fid in common_ids:
+            # get index in each camera
+            idx0 = np.where(click_data[0]["ids"] == fid)[0][0]
+            idx1 = np.where(click_data[1]["ids"] == fid)[0][0]
+            idx2 = np.where(click_data[2]["ids"] == fid)[0][0]
+
+            p0 = click_data[0]["clicks"][idx0]
+            p1 = click_data[1]["clicks"][idx1]
+            p2 = click_data[2]["clicks"][idx2]
+
+            X_cam, (u0,v0,u1,v1,u2,v2), (e0,e1,e2,rms) = tri_from_pixels(p0, p1, p2)
+
+            meas_cam[fid] = X_cam.copy()
+            ids_clicked.append(fid)
+
+            res_c2ph, res_ph2c, used_ids = current_transform()
+
+            if res_c2ph is None:
+                print(f"FID {fid}: need ≥3 points yet")
+                continue
+
+            R_c2ph, t_c2ph = res_c2ph
+
+            X_meas_ph = R_c2ph @ X_cam + t_c2ph
+            X_ref_ph = P(fid)
+            d = X_meas_ph - X_ref_ph
+            err_norm = float(np.linalg.norm(d))
+
+            print(f"FID {fid}: error = {err_norm:.4f}")
+
+            writer.writerow([
+                time.time(), fid,
+                u0, v0, u1, v1, u2, v2,
+                X_cam[0], X_cam[1], X_cam[2],
+                X_meas_ph[0], X_meas_ph[1], X_meas_ph[2],
+                X_ref_ph[0], X_ref_ph[1], X_ref_ph[2],
+                d[0], d[1], d[2], err_norm,
+                e0, e1, e2, rms
+            ])
+
+        f.close()
+        print(f"\nSaved log to {args.csv_out}")
 
     f.close()
     print(f"\nSaved log to {args.csv_out}\nDone.")

@@ -55,6 +55,7 @@ PRESET = {
     "npz_out": "rig_from_clicks.npz"
 }
 
+CLICK_OUTPUT_DIR = "./data/clicks"
 
 # ----------------- IO helpers -----------------
 
@@ -491,6 +492,19 @@ def solve_extrinsics_from_clicks(img_path, K, D, phantom_ids, phantom_xyz,
         for _ in range(3):
             cv2.waitKey(10)
         print(f"[INFO] IDs accepted ({len(id_list)} for {len(clicks)} clicks): {id_list}. Closing picker and continuing...")
+        
+        # Save clicks for reuse
+        os.makedirs(CLICK_OUTPUT_DIR, exist_ok=True)
+        CLICK_SAVE_PATH = os.path.join(
+            CLICK_OUTPUT_DIR,
+            f"clicks_cam{cam_index}.npz"
+        )
+        np.savez(
+            CLICK_SAVE_PATH,
+            clicks=clicks,
+            ids=np.array(id_list)
+        )
+        print(f"[INFO] Saved clicks to {CLICK_SAVE_PATH}")
         break
 # Map IDs → XYZ
     id_to_idx = {int(i):k for k,i in enumerate(phantom_ids)}
