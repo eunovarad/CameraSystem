@@ -18,6 +18,8 @@ CAM_WIDTH = 5472
 CAM_HEIGHT = 3648
 CAM_FPS = 5
 
+DISPLAY_SCALE = 0.15   # adjust to fit screen (0.15–0.25 works well for 5K)
+
 USE_DSHOW = True       # recommended on Windows
 USE_MJPG = True        # often helps USB camera reliability
 
@@ -54,7 +56,13 @@ def main():
             print("⚠️ No frame received yet")
             continue
 
-        display = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+        display = cv2.resize(
+            frame,
+            (0, 0),
+            fx=DISPLAY_SCALE,
+            fy=DISPLAY_SCALE,
+            interpolation=cv2.INTER_AREA
+        )
         cv2.imshow("One-Frame Capture", display)
 
         key = cv2.waitKey(1) & 0xFF
