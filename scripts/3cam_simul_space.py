@@ -14,8 +14,8 @@ OUTPUT_DIR    = './data/phantom_images'      # Output directory for captured ima
 DISPLAY_SCALE = 0.20                         # Scale factor for display
 CAM_NAMES = {
     0: "left",
-    1: "right",
-    2: "back"
+    1: "back",
+    2: "right"
 }
 
 
