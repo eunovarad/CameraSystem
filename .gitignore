@@ -3,6 +3,8 @@
 # =========================
 
 data/
+Trial 1 data/
+Trial 1 other/
 
 # If you ever want to keep structure but ignore contents instead:
 # data/*_captures/
