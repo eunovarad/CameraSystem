@@ -14,8 +14,8 @@ OUTPUT_DIR    = './data/phantom_images'      # Output directory for captured ima
 DISPLAY_SCALE = 0.20                         # Scale factor for display
 CAM_NAMES = {
     0: "left",
-    1: "right",
-    2: "back"
+    1: "back",
+    2: "right"
 }
 
 
@@ -68,13 +68,13 @@ def capture_loop(streams, cam_ids, out_dir):
                 break
 
             if key == 32 and len(frames) == len(cam_ids):  # spacebar = 32
-                ts = int(time.time() * 1000)
+                set_num = count + 1
                 for cid, frame in frames.items():
                     name = CAM_NAMES.get(cid, f"cam{cid}")
-                    fname = f"{name}_{ts}.png"
-                    path = os.path.join(OUTPUT_DIR, fname)
+                    fname = f"{name}_set{set_num:02d}.png"
+                    path = os.path.join(out_dir, fname)
                     cv2.imwrite(path, frame)
-                print(f"Captured set {count} @ {ts}")
+                print(f"Captured set {set_num:02d}")
                 count += 1
 
     finally:
