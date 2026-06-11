@@ -752,7 +752,6 @@ def main():
         print(f"\nSaved log to {args.csv_out}")
 
     f.close()
-    print(f"\nSaved log to {args.csv_out}\nDone.")
     return 0
 
 if __name__ == "__main__":
